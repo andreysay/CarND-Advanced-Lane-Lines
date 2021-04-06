@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import logging
 
 # Define a class to receive the characteristics of each line detection
 class Line():
@@ -46,17 +47,14 @@ class LaneLines():
         self.rightLine = Line()
 
     def find_lane_pixels(self, binary_warped):
+        assert(len(binary_warped.shape) == 2)
         # Take a histogram of the bottom half of the image
         histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
         # Find the peak of the left and right halves of the histogram
         # These will be the starting point for the left and right lines
         midpoint = np.int(histogram.shape[0]//2)
-        #print('midpoint = ', midpoint)
         leftx_base = np.argmax(histogram[:midpoint])
-        #print('leftx_base = ', leftx_base)
-        #rightx_base = np.argmax(histogram[midpoint:]) + midpoint 
-        rightx_base = leftx_base + 700 
-        #print('rightx_base = ', rightx_base)
+        rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
         # Set height of windows - based on nwindows above and image shape
         window_height = np.int(binary_warped.shape[0]//self.nwindows)
@@ -101,13 +99,9 @@ class LaneLines():
             if len(good_right_inds) > self.minpix:        
                 rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
 
-        # Concatenate the arrays of indices (previously was a list of lists of pixels)
-        try:
-            left_lane_inds = np.concatenate(left_lane_inds)
-            right_lane_inds = np.concatenate(right_lane_inds)
-        except ValueError:
-            # Avoids an error if the above is not implemented fully
-            pass
+        left_lane_inds = np.concatenate(left_lane_inds)
+        right_lane_inds = np.concatenate(right_lane_inds)
+
 
         # Extract left and right line pixel positions
         self.leftLine.allx = nonzerox[left_lane_inds]
@@ -115,38 +109,30 @@ class LaneLines():
         self.rightLine.allx = nonzerox[right_lane_inds]
         self.rightLine.ally = nonzeroy[right_lane_inds]
 
-    def fit_polynomial(self, binary_warped):  
+        logging.debug("left allx: %d", len(self.leftLine.allx))
+        logging.debug("left ally: %d", len(self.leftLine.ally))
+        logging.debug("right allx: %d", len(self.rightLine.allx))
+        logging.debug("right ally: %d", len(self.rightLine.ally))
+        logging.debug("----------------")
+
         ### Fit a second order polynomial to each using `np.polyfit` ###
-        if len(self.leftLine.ally) > 1500:
+        if len(self.leftLine.allx) != 0 and len(self.leftLine.ally) !=0: 
             self.leftLine.current_fit = np.polyfit(self.leftLine.ally, self.leftLine.allx, 2)
             self.leftLine.detected = True
-        else:
-            self.leftLine.detected = False
-        if len(self.rightLine.ally) > 1500:
+        if len(self.rightLine.allx) != 0 and len(self.rightLine.ally) !=0: 
             self.rightLine.current_fit = np.polyfit(self.rightLine.ally, self.rightLine.allx, 2)
-            self.rightLine.detected = True
-        else:
-            self.rightLine.detected = False
-        #left_fit = np.polyfit(lefty, leftx, 2)
-        #right_fit = np.polyfit(righty, rightx, 2)
+            self.rightLine.detected = True    
 
-        # Generate x and y values for plotting
-        self.ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-        if self.leftLine.detected:
-            self.leftLine.best_fit = self.leftLine.current_fit[0]*self.ploty**2 + self.leftLine.current_fit[1]*self.ploty + self.leftLine.current_fit[2]
-        else:
-            # Avoids an error if `left` and `right_fit` are still none or incorrect
-            print('The function failed to fit a Left line!')
-            self.leftLine.best_fit = 1*self.ploty**2 + 1*self.ploty
-        if self.rightLine.detected:
-            self.rightLine.best_fit = self.rightLine.current_fit[0]*self.ploty**2 + self.rightLine.current_fit[1]*self.ploty + self.rightLine.current_fit[2]
-        else:
-            print('The function failed to fit a Right line!')
-            self.rightLine.best_fit = 1*self.ploty**2 + 1*self.ploty
+    def fit_polynomial(self, binary_warped):
+        # Find our lane pixels first
+        
+        self.find_lane_pixels(binary_warped)
+        if self.leftLine.detected and self.rightLine.detected:        
+            self.search_around_poly(binary_warped)
+
 
     # Maybe we don't need it
     def search_around_poly(self, binary_warped):
-
         # Grab activated pixels
         nonzero = binary_warped.nonzero()
         nonzeroy = np.array(nonzero[0])
@@ -154,14 +140,12 @@ class LaneLines():
         
         ### Set the area of search based on activated x-values ###
         ### within the +/- margin of our polynomial function ###
-        ### Hint: consider the window areas for the similarly named variables ###
-        ### in the previous quiz, but change the windows to our new search area ###
-        left_lane_inds = ((nonzerox > (self.leftLine.best_fit[0]*(nonzeroy**2) + self.leftLine.best_fit[1]*nonzeroy + 
-                        self.leftLine.best_fit[2] - self.margin)) & (nonzerox < (self.leftLine.best_fit[0]*(nonzeroy**2) + 
-                        self.leftLine.best_fit[1]*nonzeroy + self.leftLine.best_fit[2] + self.margin)))
-        right_lane_inds = ((nonzerox > (self.rightLine.best_fit[0]*(nonzeroy**2) + self.rightLine.best_fit[1]*nonzeroy + 
-                        self.rightLine.best_fit[2] - self.margin)) & (nonzerox < (self.rightLine.best_fit[0]*(nonzeroy**2) + 
-                        self.rightLine.best_fit[1]*nonzeroy + self.rightLine.best_fit[2] + self.margin)))
+        left_lane_inds = ((nonzerox > (self.leftLine.current_fit[0]*(nonzeroy**2) + self.leftLine.current_fit[1]*nonzeroy + 
+                        self.leftLine.current_fit[2] - self.margin)) & (nonzerox < (self.leftLine.current_fit[0]*(nonzeroy**2) + 
+                        self.leftLine.current_fit[1]*nonzeroy + self.leftLine.current_fit[2] + self.margin)))
+        right_lane_inds = ((nonzerox > (self.rightLine.current_fit[0]*(nonzeroy**2) + self.rightLine.current_fit[1]*nonzeroy + 
+                        self.rightLine.current_fit[2] - self.margin)) & (nonzerox < (self.rightLine.current_fit[0]*(nonzeroy**2) + 
+                        self.rightLine.current_fit[1]*nonzeroy + self.rightLine.current_fit[2] + self.margin)))
         
         # Again, extract left and right line pixel positions
         self.leftLine.allx = nonzerox[left_lane_inds]
@@ -169,8 +153,115 @@ class LaneLines():
         self.rightLine.allx = nonzerox[right_lane_inds]
         self.rightLine.ally = nonzeroy[right_lane_inds]
 
-        # Fit new polynomials
-        self.fit_polynomial(binary_warped.shape)
+        ### Fit a second order polynomial to each with np.polyfit() ###
+        if len(self.leftLine.ally) > 1500:
+            self.leftLine.best_fit = np.polyfit(self.leftLine.ally, self.leftLine.allx, 2)
+        # else:
+        #     self.leftLine.best_fit = []
+
+        if len(self.rightLine.ally) > 1500:
+            self.rightLine.best_fit = np.polyfit(self.rightLine.ally, self.rightLine.allx, 2)
+        # else:
+        #     self.rightLine.best_fit = []
+
+        # Generate x and y values for plotting
+        maxy = binary_warped.shape[0] - 1
+        miny = binary_warped.shape[0] // 3    
+        if len(self.leftLine.ally):
+            maxy = max(maxy, np.max(self.leftLine.ally))
+            miny = min(miny, np.min(self.leftLine.ally))
+
+        if len(self.rightLine.ally):
+            maxy = max(maxy, np.max(self.rightLine.ally))
+            miny = min(miny, np.min(self.rightLine.ally))   
+
+        self.ploty = np.linspace(miny, maxy, binary_warped.shape[0])       
+
+        ### Calc both polynomials using ploty, left_fit and right_fit ###
+        if self.leftLine.best_fit is not None and self.rightLine.best_fit is not None:
+            self.leftLine.bestx = self.leftLine.best_fit[0]*self.ploty**2 + self.leftLine.best_fit[1]*self.ploty + self.leftLine.best_fit[2]
+            self.rightLine.bestx = self.rightLine.best_fit[0]*self.ploty**2 + self.rightLine.best_fit[1]*self.ploty + self.rightLine.best_fit[2]
+
+            self.leftLine.recent_xfitted.append(self.rightLine.bestx)
+            if len(self.leftLine.recent_xfitted) > 5:
+                self.leftLine.recent_xfitted.pop(0)
+            
+            self.rightLine.recent_xfitted.append(self.rightLine.bestx)
+            if len(self.rightLine.recent_xfitted) > 5:
+                self.rightLine.recent_xfitted.pop(0)
+            
+            self.leftLine.detected = True
+            self.rightLine.detected = True
+            # self.leftLine.diffs = abs(self.leftLine.best_fit - self.leftLine.current_fit)
+            # l_fit_x_int = abs(self.leftLine.diffs[0]*binary_warped.shape[0]**2 + self.leftLine.diffs[1]*binary_warped.shape[0] + self.leftLine.diffs[2])
+            # if (self.leftLine.diffs[0] > 0.001 or \
+            #    self.leftLine.diffs[1] > 1.0 or \
+            #    self.leftLine.diffs[2] > 100.):
+            #    self.leftLine.detected = False
+            #    self.leftLine.bestx = self.leftLine.recent_xfitted[-1]
+            # else:
+            #     self.leftLine.detected = True
+            #     self.leftLine.recent_xfitted.append(self.rightLine.bestx)
+            #     if len(self.leftLine.recent_xfitted) > 5:
+            #         self.leftLine.recent_xfitted.pop(0)
+            # if l_fit_x_int > 100:
+            #     self.leftLine.bestx = self.leftLine.recent_xfitted[-1]
+            #     self.leftLine.detected = False   
+            # else:
+            #     self.leftLine.recent_xfitted.append(self.leftLine.bestx)
+            #     if len(self.leftLine.recent_xfitted) > 5:
+            #         self.leftLine.recent_xfitted.pop(0)
+            #logging.debug("left pixels diff = %d", l_fit_x_int)
+            #logging.debug("leftLine.recent_xfitted len = %d", len(self.leftLine.recent_xfitted))
+        else:
+            if len(self.leftLine.recent_xfitted) > 0 and len(self.rightLine.recent_xfitted) > 0:
+                self.leftLine.bestx = self.leftLine.recent_xfitted[0]
+                self.rightLine.bestx = self.rightLine.recent_xfitted[0]
+                self.leftLine.detected = True
+                self.rightLine.detected = True
+            else:
+                self.leftLine.detected = False
+                self.rightLine.detected = False
+        #if :      
+            
+            # self.rightLine.diffs = abs(self.rightLine.best_fit - self.rightLine.current_fit)
+            # r_fit_x_int = abs(self.rightLine.diffs[0]*binary_warped.shape[0]**2 + self.rightLine.diffs[1]*binary_warped.shape[0] + self.rightLine.diffs[2])
+            # if (self.rightLine.diffs[0] > 0.001 or \
+            #    self.rightLine.diffs[1] > 1.0 or \
+            #    self.rightLine.diffs[2] > 100.):
+            #    self.rightLine.detected = False
+            #    self.rightLine.bestx = self.rightLine.recent_xfitted[-1]
+            # else:
+            #     self.rightLine.detected = True
+            #     self.rightLine.recent_xfitted.append(self.rightLine.bestx)
+            #     if len(self.rightLine.recent_xfitted) > 5:
+            #         self.rightLine.recent_xfitted.pop(0)                 
+            # if r_fit_x_int > 100:
+            #     self.rightLine.bestx = self.rightLine.recent_xfitted[-1]
+            #     self.rightLine.detected = False
+            # else:
+            #     self.rightLine.recent_xfitted.append(self.rightLine.bestx)
+            #     if len(self.rightLine.recent_xfitted) > 5:
+            #         self.rightLine.recent_xfitted.pop(0) 
+            #logging.debug("right pixels diff = %d", r_fit_x_int)                  
+            #logging.debug("leftLine.recent_xfitted len = %d", len(self.leftLine.recent_xfitted))
+        #else:
+            
+
+        # if self.rightLine.best_fit is not None and self.leftLine.best_fit is not None:
+        #     ploty = np.linspace(0, 20, num=10 )
+        #     left_fitx = self.leftLine.best_fit[0]*ploty**2 + self.leftLine.best_fit[1]*ploty + self.leftLine.best_fit[2]
+        #     right_fitx = self.rightLine.best_fit[0]*ploty**2 + self.rightLine.best_fit[1]*ploty + self.rightLine.best_fit[2]
+        #     delta_lines = np.mean(right_fitx - left_fitx)
+        #     if delta_lines >= 150 and delta_lines <=430: 
+        #         self.rightLine.detected = True
+        #         self.leftLine.detected = True
+        #     else:
+        #         logging.debug("delta_lines = %d", delta_lines)
+        #         self.rightLine.detected = False
+        #         self.leftLine.detected = False
+
+        
 
     def measure_curvature_real(self, img):
         '''
@@ -187,8 +278,10 @@ class LaneLines():
         ploty = np.linspace(0, height-1, num=height)
         y_eval = np.max(ploty)
         
-        left_fit_cr = np.polyfit(self.leftLine.ally*ym_per_pix, self.leftLine.allx*xm_per_pix, 2)
-        right_fit_cr = np.polyfit(self.rightLine.ally*ym_per_pix, self.rightLine.allx*xm_per_pix, 2)
+        
+        left_fit_cr = np.polyfit(self.ploty*ym_per_pix, self.leftLine.bestx*xm_per_pix, 2)
+        right_fit_cr = np.polyfit(self.ploty*ym_per_pix, self.rightLine.bestx*xm_per_pix, 2)
+
         
         ##### Implement the calculation of R_curve (radius of curvature) #####
         self.leftLine.radius_of_curvature = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
@@ -209,15 +302,15 @@ class LaneLines():
         self.rightLine.line_base_pos = (image_mid_point_in_meter - lane_midpoint)
     
     def drawLane(self, img, binary, invM):
-        new_img = np.copy(img)
+        #new_img = np.copy(img)
 
         # Create an image to draw the lines on
         warp_zero = np.zeros_like(binary).astype(np.uint8)
         color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
 
         # Recast the x and y points into usable format for cv2.fillPoly()
-        points_left = np.array([np.transpose(np.vstack([self.leftLine.best_fit, self.ploty]))])
-        points_right = np.array([np.flipud(np.transpose(np.vstack([self.rightLine.best_fit, self.ploty])))])
+        points_left = np.array([np.transpose(np.vstack([self.leftLine.bestx, self.ploty]))])
+        points_right = np.array([np.flipud(np.transpose(np.vstack([self.rightLine.bestx, self.ploty])))])
         points = np.hstack((points_left, points_right))
 
         # Draw the lane onto the warped blank image
@@ -226,19 +319,19 @@ class LaneLines():
         # Warp the blank back to original image space using inverse perspective matrix (Minv)
         newwarp = cv2.warpPerspective(color_warp, invM, (img.shape[1], img.shape[0])) 
         # Combine the result with the original image
-        result = cv2.addWeighted(new_img, 1, newwarp, 0.5, 0)
+        result = cv2.addWeighted(img, 1, newwarp, 0.5, 0)
 
         return result
 
     def drawData(self, img):
-        result = np.copy(img)
+        #result = np.copy(img)
         font = cv2.FONT_HERSHEY_SIMPLEX
         curv_l_label = 'Left line Curvature: {:.0f} m.'.format(self.leftLine.radius_of_curvature)
         curv_r_label = 'Right line Curvature: {:.0f} m.'.format(self.rightLine.radius_of_curvature)
         deviation_label = 'Vehicle Deviation: {:.3f} m.'.format(self.rightLine.line_base_pos)
 
-        cv2.putText(result, curv_l_label, (30, 50), font, 1, (255,255,255), 2)
-        cv2.putText(result, curv_r_label, (30, 100), font, 1, (255,255,255), 2)
-        cv2.putText(result, deviation_label, (30, 150), font, 1, (255,255,255), 2)
+        cv2.putText(img, curv_l_label, (30, 50), font, 1, (255,255,255), 2)
+        cv2.putText(img, curv_r_label, (30, 100), font, 1, (255,255,255), 2)
+        cv2.putText(img, deviation_label, (30, 150), font, 1, (255,255,255), 2)
 
-        return result
+        return img
