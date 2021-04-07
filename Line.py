@@ -109,25 +109,24 @@ class LaneLines():
         self.rightLine.allx = nonzerox[right_lane_inds]
         self.rightLine.ally = nonzeroy[right_lane_inds]
 
-        logging.debug("left allx: %d", len(self.leftLine.allx))
-        logging.debug("left ally: %d", len(self.leftLine.ally))
-        logging.debug("right allx: %d", len(self.rightLine.allx))
-        logging.debug("right ally: %d", len(self.rightLine.ally))
-        logging.debug("----------------")
+        logging.debug("find_lane_pixels left allx: %d", len(self.leftLine.allx))
+        logging.debug("find_lane_pixels left ally: %d", len(self.leftLine.ally))
+        logging.debug("find_lane_pixels right allx: %d", len(self.rightLine.allx))
+        logging.debug("find_lane_pixels right ally: %d", len(self.rightLine.ally))
+        logging.debug("-------------------------------")
 
         ### Fit a second order polynomial to each using `np.polyfit` ###
-        if len(self.leftLine.allx) != 0 and len(self.leftLine.ally) !=0: 
+        if len(self.leftLine.ally) > 700 and len(self.rightLine.ally) > 700: 
             self.leftLine.current_fit = np.polyfit(self.leftLine.ally, self.leftLine.allx, 2)
-            self.leftLine.detected = True
-        if len(self.rightLine.allx) != 0 and len(self.rightLine.ally) !=0: 
             self.rightLine.current_fit = np.polyfit(self.rightLine.ally, self.rightLine.allx, 2)
-            self.rightLine.detected = True    
+            self.leftLine.detected = True
+            self.rightLine.detected = True
+  
 
     def fit_polynomial(self, binary_warped):
-        # Find our lane pixels first
-        
+        # Find our lane pixels first   
         self.find_lane_pixels(binary_warped)
-        if self.leftLine.detected and self.rightLine.detected:        
+        if self.leftLine.detected and self.rightLine.detected:
             self.search_around_poly(binary_warped)
 
 
@@ -153,13 +152,19 @@ class LaneLines():
         self.rightLine.allx = nonzerox[right_lane_inds]
         self.rightLine.ally = nonzeroy[right_lane_inds]
 
+        logging.debug("search_around_poly left allx: %d", len(self.leftLine.allx))
+        logging.debug("search_around_poly left ally: %d", len(self.leftLine.ally))
+        logging.debug("search_around_poly right allx: %d", len(self.rightLine.allx))
+        logging.debug("search_around_poly right ally: %d", len(self.rightLine.ally))
+        logging.debug("----------------------------------")
+
         ### Fit a second order polynomial to each with np.polyfit() ###
-        if len(self.leftLine.ally) > 1500:
+        if len(self.leftLine.ally) > 700:
             self.leftLine.best_fit = np.polyfit(self.leftLine.ally, self.leftLine.allx, 2)
         # else:
         #     self.leftLine.best_fit = []
 
-        if len(self.rightLine.ally) > 1500:
+        if len(self.rightLine.ally) > 700:
             self.rightLine.best_fit = np.polyfit(self.rightLine.ally, self.rightLine.allx, 2)
         # else:
         #     self.rightLine.best_fit = []
@@ -192,27 +197,6 @@ class LaneLines():
             
             self.leftLine.detected = True
             self.rightLine.detected = True
-            # self.leftLine.diffs = abs(self.leftLine.best_fit - self.leftLine.current_fit)
-            # l_fit_x_int = abs(self.leftLine.diffs[0]*binary_warped.shape[0]**2 + self.leftLine.diffs[1]*binary_warped.shape[0] + self.leftLine.diffs[2])
-            # if (self.leftLine.diffs[0] > 0.001 or \
-            #    self.leftLine.diffs[1] > 1.0 or \
-            #    self.leftLine.diffs[2] > 100.):
-            #    self.leftLine.detected = False
-            #    self.leftLine.bestx = self.leftLine.recent_xfitted[-1]
-            # else:
-            #     self.leftLine.detected = True
-            #     self.leftLine.recent_xfitted.append(self.rightLine.bestx)
-            #     if len(self.leftLine.recent_xfitted) > 5:
-            #         self.leftLine.recent_xfitted.pop(0)
-            # if l_fit_x_int > 100:
-            #     self.leftLine.bestx = self.leftLine.recent_xfitted[-1]
-            #     self.leftLine.detected = False   
-            # else:
-            #     self.leftLine.recent_xfitted.append(self.leftLine.bestx)
-            #     if len(self.leftLine.recent_xfitted) > 5:
-            #         self.leftLine.recent_xfitted.pop(0)
-            #logging.debug("left pixels diff = %d", l_fit_x_int)
-            #logging.debug("leftLine.recent_xfitted len = %d", len(self.leftLine.recent_xfitted))
         else:
             if len(self.leftLine.recent_xfitted) > 0 and len(self.rightLine.recent_xfitted) > 0:
                 self.leftLine.bestx = self.leftLine.recent_xfitted[0]
@@ -222,44 +206,6 @@ class LaneLines():
             else:
                 self.leftLine.detected = False
                 self.rightLine.detected = False
-        #if :      
-            
-            # self.rightLine.diffs = abs(self.rightLine.best_fit - self.rightLine.current_fit)
-            # r_fit_x_int = abs(self.rightLine.diffs[0]*binary_warped.shape[0]**2 + self.rightLine.diffs[1]*binary_warped.shape[0] + self.rightLine.diffs[2])
-            # if (self.rightLine.diffs[0] > 0.001 or \
-            #    self.rightLine.diffs[1] > 1.0 or \
-            #    self.rightLine.diffs[2] > 100.):
-            #    self.rightLine.detected = False
-            #    self.rightLine.bestx = self.rightLine.recent_xfitted[-1]
-            # else:
-            #     self.rightLine.detected = True
-            #     self.rightLine.recent_xfitted.append(self.rightLine.bestx)
-            #     if len(self.rightLine.recent_xfitted) > 5:
-            #         self.rightLine.recent_xfitted.pop(0)                 
-            # if r_fit_x_int > 100:
-            #     self.rightLine.bestx = self.rightLine.recent_xfitted[-1]
-            #     self.rightLine.detected = False
-            # else:
-            #     self.rightLine.recent_xfitted.append(self.rightLine.bestx)
-            #     if len(self.rightLine.recent_xfitted) > 5:
-            #         self.rightLine.recent_xfitted.pop(0) 
-            #logging.debug("right pixels diff = %d", r_fit_x_int)                  
-            #logging.debug("leftLine.recent_xfitted len = %d", len(self.leftLine.recent_xfitted))
-        #else:
-            
-
-        # if self.rightLine.best_fit is not None and self.leftLine.best_fit is not None:
-        #     ploty = np.linspace(0, 20, num=10 )
-        #     left_fitx = self.leftLine.best_fit[0]*ploty**2 + self.leftLine.best_fit[1]*ploty + self.leftLine.best_fit[2]
-        #     right_fitx = self.rightLine.best_fit[0]*ploty**2 + self.rightLine.best_fit[1]*ploty + self.rightLine.best_fit[2]
-        #     delta_lines = np.mean(right_fitx - left_fitx)
-        #     if delta_lines >= 150 and delta_lines <=430: 
-        #         self.rightLine.detected = True
-        #         self.leftLine.detected = True
-        #     else:
-        #         logging.debug("delta_lines = %d", delta_lines)
-        #         self.rightLine.detected = False
-        #         self.leftLine.detected = False
 
         
 

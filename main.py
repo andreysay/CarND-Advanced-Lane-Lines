@@ -43,17 +43,20 @@ class FindLaneLines:
         self.undistort = undistortImage
         self.transform = warper
         self.laneLines = LaneLines()
+        self.counter = 0
 
     def runPipeline(self, img):
         out_img = np.copy(img)
 
         img_undist = self.undistort(img, self.mtx, self.dist)
         #cv2.imwrite('output_images/undistorted.jpg', img_undist)
-        img = self.thresholding.forward(img_undist)
+        img = self.thresholding.run(img_undist)
         #cv2.imwrite('output_images/thresholded.jpg', img)
 
         binaryWarped, M, invM = self.transform(img, self.src, self.dst)
-        #cv2.imwrite('output_images/binarywarped.jpg', binaryWarped)
+        if self.counter == 0 or (self.counter >= 100 and self.counter%100 == 0):
+            imgname = 'output_images/binary' + str(self.counter) + 'warped.jpg'
+            cv2.imwrite(imgname, binaryWarped)
         self.laneLines.fit_polynomial(binaryWarped)
         if self.laneLines.leftLine.detected and self.laneLines.rightLine.detected:
             self.laneLines.measure_curvature_real(binaryWarped)
@@ -61,7 +64,7 @@ class FindLaneLines:
             out_img = self.laneLines.drawLane(img_undist, binaryWarped, invM)
             #cv2.imwrite('output_images/drawlanes.jpg', out_img)
             out_img = self.laneLines.drawData(out_img)
-
+        self.counter += 1
         return out_img
 
     def processImage(self, input_path, output_path):

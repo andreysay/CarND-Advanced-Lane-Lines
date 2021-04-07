@@ -21,7 +21,7 @@ class Thresholding:
         """ Init Thresholding."""
         pass
 
-    def forward(self, img):
+    def run(self, img):
         """ Take an image and extract all relavant pixels.
 
         Parameters:
@@ -34,7 +34,6 @@ class Thresholding:
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
         h_channel = hls[:,:,0]
         l_channel = hls[:,:,1]
-        s_channel = hls[:,:,2]
         v_channel = hsv[:,:,2]
 
         right_lane = threshold_rel(l_channel, 0.8, 1.0)
@@ -44,9 +43,9 @@ class Thresholding:
         left_lane &= threshold_rel(v_channel, 0.7, 1.0)
         left_lane[:,550:] = 0
 
-        img2 = left_lane | right_lane
+        out = left_lane | right_lane
 
-        return img2
+        return out
 
 # Define a function that applies Sobel x or y, 
 # then takes an absolute value and applies a threshold.
@@ -129,13 +128,11 @@ def hls_select(img, thresh=(0, 255)):
 
 def thresholdPipeline(image, ksize=3):
     # Apply each of the thresholding functions
-    gradx = abs_sobel_thresh(image, orient='x', sobel_kernel=ksize, thresh=(50, 255))
-    grady = abs_sobel_thresh(image, orient='y', sobel_kernel=ksize, thresh=(50, 255))
     mag_binary = mag_thresh(image, sobel_kernel=ksize, mag_thresh=(50, 255))
     dir_binary = dir_threshold(image, sobel_kernel=ksize, thresh=(0.7, 1.3))
     hls_binary = hls_select(image, thresh=(170, 255))
     combined = np.zeros_like(dir_binary)
-    combined[((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1)) | hls_binary == 1] = 1
+    combined[((mag_binary == 1) & (dir_binary == 1)) | hls_binary == 1] = 1
     
     return combined
 
