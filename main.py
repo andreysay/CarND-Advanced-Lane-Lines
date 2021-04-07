@@ -60,7 +60,6 @@ class FindLaneLines:
         self.laneLines.fit_polynomial(binaryWarped)
         if self.laneLines.leftLine.detected and self.laneLines.rightLine.detected:
             self.laneLines.measure_curvature_real(binaryWarped)
-
             out_img = self.laneLines.drawLane(img_undist, binaryWarped, invM)
             #cv2.imwrite('output_images/drawlanes.jpg', out_img)
             out_img = self.laneLines.drawData(out_img)
