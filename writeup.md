@@ -17,11 +17,12 @@ The goals / steps of this project are the following:
 [image2]: ./output_images/undistorted_test1.jpg "Road Transformed"
 [image3]: ./output_images/bintest3_2.jpg "Binary Example"
 [image4]: ./output_images/binary_wraped.jpg "Warp Example"
-[image5]: ./output_images/color_fit_lines.jpg "Fit Visual"
+[image5]: ./output_images/test2.jpg "Fit Visual"
 [image6]: ./output_images/example_output.jpg "Output"
 [image7]: ./output_images/undistorted-warped.png "Undistorted wraped"
 [image8]: ./output_images/original_undistorted.jpg "Original undistorted"
-[video1]: ./processed_project_video.mp4 "Video"
+[video1]: ./processed_project_video.mp4 "Video project"
+[video2]: ./challenge_video_processed.mp4 "Challenge video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -79,21 +80,29 @@ I verified that my perspective transform was working as expected by drawing the 
 
 ![alt text][image7]
 
-![alt text][image4]
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+Given the warped binary image from the previous step, I now fit a 2nd order polynomial to both left and right lane lines. In particular, I perform the following:
+
+* Calculate a histogram of the bottom half of the image
+* Partition the image into 9 horizontal slices
+* Starting from the bottom slice, enclose a 200 pixel wide window around the left peak and right peak of the histogram (split the histogram in half vertically)
+* Go up the horizontal window slices to find pixels that are likely to be part of the left and right lanes, recentering the sliding windows opportunistically
+* Given 2 groups of pixels (left and right lane line candidate pixels), fit a 2nd order polynomial to each group, which represents the estimated left and right lane lines
+
+I define class LaneLines which contalin left, right lanes in file 'Line.py'
 
 ![alt text][image5]
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+Given the polynomial fit for the left and right lane lines, I calculated the radius of curvature for each line according to formulas presented [here](http://www.intmath.com/applications-differentiation/8-radius-curvature.php). I also converted the distance units from pixels to meters, assuming 30 meters per 720 pixels in the vertical direction, and 3.7 meters per 700 pixels in the horizontal direction.
+I implemented this step in lines 208 through 244 in my code in `Line.py` in the function `drawLane()`.
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+I implemented this step in lines 246 through 266 in my code in `Line.py` in the function `drawLane()`.  Here is an example of my result on a test image:
 
 ![alt text][image6]
 
@@ -103,12 +112,12 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [video1](./processed_project_video.mp4)
+Here's a [video2] (./challenge_video_processed.mp4)
 
 ---
 
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
-
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+This is an simple version of computer vision based lane finding. There are multiple scenarios where this lane finder would fail. For example, the Udacity harder challenge video includes roads with different perspective which could be slam our perspective transform (see 'harder_challenge_video_processed.mp4'). Also, it is possible that other vehicles in front would trick the lane finder into thinking it was part of the lane. More work can be done to make the lane detector more robust, e.g. [deep-learning-based semantic segmentation](https://arxiv.org/pdf/1605.06211.pdf) to find pixels that are likely to be lane markers (then performing polyfit on only those pixels).
