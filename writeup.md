@@ -19,7 +19,7 @@ The goals / steps of this project are the following:
 [image4]: ./output_images/binary_wraped.jpg "Warp Example"
 [image5]: ./output_images/color_fit_lines.jpg "Fit Visual"
 [image6]: ./output_images/example_output.jpg "Output"
-[image7]: ./output_images/original_undistorted_wraped.jpg "Undistorted wraped"
+[image7]: ./output_images/undistorted-warped.png "Undistorted wraped"
 [image8]: ./output_images/original_undistorted.jpg "Original undistorted"
 [video1]: ./processed_project_video.mp4 "Video"
 
@@ -77,7 +77,7 @@ This resulted in the following source and destination points:
 
 I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
 
-![alt text][image8] ![alt text][image7]
+![alt text][image7]
 
 ![alt text][image4]
 
